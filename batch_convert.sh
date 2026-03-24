@@ -26,13 +26,9 @@ echo "开始转换目录 '$TARGET_DIR' 中的 Markdown 文件..."
 echo "使用的模板: ${TEMPLATE_PATH}.html"
 echo "----------------------------------------"
 
-# 遍历目录下所有的 .md 文件
-for md_file in "$TARGET_DIR"/*.md; do
-    # 检查是否真的有 .md 文件（防止目录为空时通配符不展开直接把 "*.md" 当成字符串）
-    if [ ! -f "$md_file" ]; then
-        echo "目录中没有找到 .md 文件。"
-        break
-    fi
+# 使用 find 命令递归遍历目录及其所有子目录下的 .md 文件
+# -print0 和 read -d '' 配合使用，可以安全处理包含空格的特殊文件名
+find "$TARGET_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' md_file; do
 
     # 去除文件名的 .md 后缀，将干净的路径传给 python 脚本
     FILE_WITHOUT_EXT="${md_file%.md}"
