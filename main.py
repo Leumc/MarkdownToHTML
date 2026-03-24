@@ -56,11 +56,14 @@ try:
                     continue
             pins.append(pin_pair(pin_name,pin_value))
 except FileNotFoundError:
-    pass
+    printInfo(info_type.ERROR,f"指定路径没有找到{template_filename}.pin")
+    sys.exit(100)
 except PermissionError:
-    printInfo(info_type.WARNING,f"没有打开{template_filename}.pin的权限，跳过读取")
+    printInfo(info_type.ERROR,f"没有打开{template_filename}.pin的权限")
+    sys.exit(101)
 except Exception as e:
-    printInfo(info_type.WARNING,f"打开{template_filename}.pin时发生异常跳过，错误原因：{type(e)}")
+    printInfo(info_type.ERROR,f"打开{template_filename}.pin时发生异常，错误原因：{type(e)}")
+    sys.exit(102)
 
 #pins.sort(key=lambda s:s.getValue())
 
@@ -99,7 +102,7 @@ for i in range(len(template_content)):
         template_content[i] = template_content[i].replace("#&--TITLE_NAME--&#", filename)
         template_content[i] = template_content[i].replace("#&--SYNTAX_CSS--&#", highlight_css)
         template_content[i] = template_content[i].replace("#&--HEAD_NAME--&#", filename)
-        template_content[i] = template_content[i].replace("#&--HEAD_PATH--&#", f"NoteBook/{filename}.md")
+        template_content[i] = template_content[i].replace("#&--HEAD_PATH--&#", f"Note/{filename}.md")
 
 if start_pin == -1:
     printInfo(info_type.ERROR,f"未在模板文件中找到入口标记(#&--START--&#)，请检查模板文件并重试")
@@ -189,20 +192,78 @@ def parse_markdown_with_lib(md_text: str) -> str:
     math_inlines = []
     html = re.sub(r'\$([^\n$]+?)\$', lambda m: f'HTMLExtractMathInline{math_inlines.append(m.group(1)) or len(math_inlines)-1}EndExtract', html)
 
-    # 1. 核心修改：将 ![[filename.png]] 转换为 HTML <img> 标签
-    # 这里的 src 先填入文件名作为占位符，后期你可以根据图床规则批量替换路径
-    html = re.sub(r'!\[\[(.*?)\.(.*?)\]\]', r'<div class="img-wrapper"><img src="\1.\2" alt="\1"></div>', html)
+    # 1. 核心修改：精准区分 Obsidian 的图片引用与外部/内部页面嵌入 (![[...]])
+    def render_obsidian_embed(match):
+        raw_content = match.group(1).strip()
+        if '|' in raw_content:
+            target, alias = raw_content.split('|', 1)
+        else:
+            target, alias = raw_content, raw_content
+            
+        target = target.strip()
+        alias = alias.strip()
+        
+        # 判断是否为图片（常见图片后缀）
+        if re.search(r'\.(png|jpg|jpeg|gif|svg|webp|bmp|ico)$', target, re.IGNORECASE):
+            return f'<div class="img-wrapper"><img src="{target}" alt="{alias}"></div>'
+        # 判断是否为外部链接
+        elif target.startswith('http://') or target.startswith('https://'):
+            return f'<div class="iframe-wrapper"><iframe src="{target}" loading="lazy"></iframe><div class="iframe-meta"><a href="{target}" target="_blank">🔗 外部页面：{alias}</a></div></div>'
+        # 否则视为内部笔记引用
+        else:
+            href = target if target.endswith('.html') else f"{target}.html"
+            return f'<blockquote class="embed-internal"><a href="{href}">📄 引用笔记：{alias}</a></blockquote>'
+
+    html = re.sub(r'!\[\[(.*?)\]\]', render_obsidian_embed, html)
 
     # 2. 原有逻辑：处理标准 Markdown 图片 ![alt](url)
     # 如果你手动改了部分链接为图床地址，这行也能兼容
     html = re.sub(r'!\[(.*?)\]\((.*?)\)', r'<div class="img-wrapper"><img src="\2" alt="\1"></div>', html)
+
+    # 3. 修复表格下方紧贴普通文本导致连带解析为表格的 Bug
+    lines = html.split('\n')
+    fixed_lines = []
+    in_table = False
+    for line in lines:
+        stripped = line.strip()
+        # 检测是否是表格的分割线 (如 |---|---| )
+        if '|' in stripped and '-' in stripped and re.match(r'^[\s\-\:\|]+$', stripped):
+            in_table = True
+            fixed_lines.append(line)
+            continue
+        
+        if in_table:
+            # 排除 Obsidian 语法 [[xxx|yyy]] 中的竖线干扰
+            text_for_check = re.sub(r'\[\[.*?\|.*?\]\]', '', stripped)
+            if '|' not in text_for_check:
+                if stripped != '':
+                    fixed_lines.append('') # 强制插入空行切断上下文
+                in_table = False
+        
+        fixed_lines.append(line)
+    html = '\n'.join(fixed_lines)
 
     # ... 后续调用 markdown.markdown(md_text, ...) 以及其他替换逻辑
 
     html = markdown.markdown(html, extensions=['fenced_code', 'tables'])
     
     html = re.sub(r'==(.*?)==', r'<mark>\1</mark>', html)
-    html = re.sub(r'\[\[(.*?)\|(.*?)\]\]', r'<a href="\1">\2</a>', html)
+    
+    # 增强：处理普通的 Obsidian 双链语法 [[页面]] 及 [[页面|别名]]
+    def render_wikilink(match):
+        content = match.group(1)
+        if '|' in content:
+            target, alias = content.split('|', 1)
+        else:
+            target, alias = content, content
+            
+        target = target.strip()
+        alias = alias.strip()
+        
+        href = target if target.startswith('http://') or target.startswith('https://') or target.endswith('.html') else f"{target}.html"
+        return f'<a href="{href}">{alias}</a>'
+
+    html = re.sub(r'\[\[(.*?)\]\]', render_wikilink, html)
     
     # 3. 还原代码块和公式
     for i, code_html in enumerate(code_blocks):
