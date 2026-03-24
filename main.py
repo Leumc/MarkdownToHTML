@@ -27,46 +27,6 @@ except Exception as e:
     printInfo(info_type.ERROR,f"打开{template_filename}.html时发生异常，错误原因：{type(e)}")
     sys.exit(102)
 
-class pin_pair:
-    def __init__(self,name,value):
-        self.__pin_name=name
-        self.__pin_value=value
-    def getName(self):
-        return self.__pin_name
-    def getValue(self):
-        return self.__pin_value
-
-#读取替换标记文件并存储处理后的数据
-pins:list[pin_pair]=[]
-
-try:
-    with open(f"{template_filename}.pin","r",encoding="utf-8") as fp:
-        fp_content=fp.readlines()
-        for i in range(len(fp_content)):
-            pair=fp_content[i].split(" ")
-            if len(pair)==2:
-                pin_name=pair[0]
-                try:
-                    pin_value=int(pair[1])
-                except ValueError:
-                    printInfo(info_type.WARNING,f"无法转换{template_filename}.pin第{i+1}行的标记，请检查标记行号是否为整数")
-                    continue
-                except Exception as e:
-                    printInfo(info_type.WARNING,f"无法转换{template_filename}.pin第{i+1}行的标记，错误原因：{type(e)}")
-                    continue
-            pins.append(pin_pair(pin_name,pin_value))
-except FileNotFoundError:
-    printInfo(info_type.ERROR,f"指定路径没有找到{template_filename}.pin")
-    sys.exit(100)
-except PermissionError:
-    printInfo(info_type.ERROR,f"没有打开{template_filename}.pin的权限")
-    sys.exit(101)
-except Exception as e:
-    printInfo(info_type.ERROR,f"打开{template_filename}.pin时发生异常，错误原因：{type(e)}")
-    sys.exit(102)
-
-#pins.sort(key=lambda s:s.getValue())
-
 #读入并格式化md文件文件名（不带扩展名）
 filename=sys.argv[1]
 if filename.endswith(".md"):
@@ -102,7 +62,7 @@ for i in range(len(template_content)):
         template_content[i] = template_content[i].replace("#&--TITLE_NAME--&#", filename)
         template_content[i] = template_content[i].replace("#&--SYNTAX_CSS--&#", highlight_css)
         template_content[i] = template_content[i].replace("#&--HEAD_NAME--&#", filename)
-        template_content[i] = template_content[i].replace("#&--HEAD_PATH--&#", f"Note/{filename}.md")
+        template_content[i] = template_content[i].replace("#&--HEAD_PATH--&#", f"NoteBook/{filename}.md")
 
 if start_pin == -1:
     printInfo(info_type.ERROR,f"未在模板文件中找到入口标记(#&--START--&#)，请检查模板文件并重试")
