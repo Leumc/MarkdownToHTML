@@ -43,4 +43,10 @@ python3 main.py [文件路径] [模板名（没有扩展名）]
 2. `#&--TITLE_NAME--&#`/`#&--HEAD_NAME--&#`：这个标记会被替换为转换文件的文件名（没有扩展名）。
 3. `#&--SYNTAX_CSS--&#`：你不需要处理代码块的高亮显示，只需要把这个标记放在`<style>`标签中的某处即可，程序会在这里插入高亮样式。如果需要修改风格，可以修改`main.py`第53行中传入`HtmlFormatter`的`style`参数。
 4. `#&--HEAD_PATH--&#`：这个标记会被默认替换为`NoteBook/文件名.md`。
+## 关于[不蒜子](https://www.busuanzi.cc/)：
 
+项目提供的模板文件会默认使用[不蒜子](https://www.busuanzi.cc/)提供的网站访客计数服务，在预览模式（比如`VS Code`的预览插件或者浏览器访问本地文件）显示的访客数据是[不蒜子](https://www.busuanzi.cc/)主站的数据。
+
+该服务是根据网站的`url`来进行计数的，如果需要正确的访客数据，请使用域名访问页面（`IP+端口`访问也会显示[不蒜子](https://www.busuanzi.cc/)主站的数据）。
+
+具体详见[不蒜子官方文档](https://www.busuanzi.cc/doc.php)。
