@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# 检查是否提供了目录参数
+if [ -z "$1" ]; then
+    echo "用法: $0 <包含md文件的目录> [模板文件路径(不含.html)]"
+    echo "示例: $0 ./NoteBook /home/leumc/exst/project/WebSite/mdAndHtml/template"
+    exit 1
+fi
+
+# 获取目标目录
+TARGET_DIR="$1"
+
+# 设定转换脚本的绝对路径
+SCRIPT_PATH="/home/leumc/exst/project/WebSite/mdAndHtml/NoteBook/main.py"
+
+# 如果没有指定模板，默认使用脚本同目录下的 template (不带 .html)
+TEMPLATE_PATH="${2:-/home/leumc/exst/project/WebSite/mdAndHtml/NoteBook/template}"
+
+# 检查目录是否存在
+if [ ! -d "$TARGET_DIR" ]; then
+    echo "错误: 目录 '$TARGET_DIR' 不存在。"
+    exit 1
+fi
+
+echo "开始转换目录 '$TARGET_DIR' 中的 Markdown 文件..."
+echo "使用的模板: ${TEMPLATE_PATH}.html"
+echo "----------------------------------------"
+
+# 使用 find 命令递归遍历目录及其所有子目录下的 .md 文件
+# -print0 和 read -d '' 配合使用，可以安全处理包含空格的特殊文件名
+find "$TARGET_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' md_file; do
+
+    # 去除文件名的 .md 后缀，将干净的路径传给 python 脚本
+    FILE_WITHOUT_EXT="${md_file%.md}"
+
+    # 检查对应的 .html 文件是否已经存在，如果存在则跳过
+    if [ -f "${FILE_WITHOUT_EXT}.html" ]; then
+        echo "⏭️  已存在，跳过: ${FILE_WITHOUT_EXT}.html"
+        echo "----------------------------------------"
+        continue
+    fi
+
+    echo "正在转换: $md_file"
+    # 使用 python3 命令执行转换脚本
+    python3 "$SCRIPT_PATH" "$FILE_WITHOUT_EXT" "$TEMPLATE_PATH"
+
+    # 检查上一条 python3 命令的退出状态码
+    if [ $? -eq 0 ]; then
+        echo "✅ 成功 -> ${FILE_WITHOUT_EXT}.html"
+    else
+        echo "❌ 失败 -> $md_file"
+    fi
+    echo "----------------------------------------"
+done
+
+echo "🎉 全部转换任务执行完毕！"
